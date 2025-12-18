@@ -392,10 +392,21 @@ void ResourceLoader::_run_load_task(void *p_userdata) {
 	bool xl_remapped = false;
 	const String &remapped_path = _path_remap(load_task.local_path, &xl_remapped);
 
+	// Check for timeout before starting the load
+	uint64_t elapsed_usec = OS::get_singleton()->get_ticks_usec() - load_task.start_time_usec;
+	uint64_t timeout_usec = (uint64_t)load_task.timeout_ms * 1000;
+	
 	Error load_err = OK;
-	Ref<Resource> res = _load(remapped_path, remapped_path != load_task.local_path ? load_task.local_path : String(), load_task.type_hint, load_task.cache_mode, &load_err, load_task.use_sub_threads, &load_task.progress);
-	if (MessageQueue::get_singleton() != MessageQueue::get_main_singleton()) {
-		MessageQueue::get_singleton()->flush();
+	Ref<Resource> res;
+	
+	if (elapsed_usec >= timeout_usec) {
+		load_err = ERR_TIMEOUT;
+		WARN_PRINT(vformat("Resource loading timed out: %s (timeout: %d ms)", load_task.local_path, load_task.timeout_ms));
+	} else {
+		res = _load(remapped_path, remapped_path != load_task.local_path ? load_task.local_path : String(), load_task.type_hint, load_task.cache_mode, &load_err, load_task.use_sub_threads, &load_task.progress);
+		if (MessageQueue::get_singleton() != MessageQueue::get_main_singleton()) {
+			MessageQueue::get_singleton()->flush();
+		}
 	}
 
 	thread_load_mutex.lock();
@@ -513,7 +524,7 @@ String ResourceLoader::_validate_local_path(const String &p_path) {
 	}
 }
 
-Error ResourceLoader::load_threaded_request(const String &p_path, const String &p_type_hint, bool p_use_sub_threads, ResourceFormatLoader::CacheMode p_cache_mode) {
+Error ResourceLoader::load_threaded_request(const String &p_path, const String &p_type_hint, bool p_use_sub_threads, ResourceFormatLoader::CacheMode p_cache_mode, uint32_t p_timeout_ms) {
 	Ref<ResourceLoader::LoadToken> token = _load_start(p_path, p_type_hint, p_use_sub_threads ? LOAD_THREAD_DISTRIBUTE : LOAD_THREAD_SPAWN_SINGLE, p_cache_mode, true);
 	return token.is_valid() ? OK : FAILED;
 }
@@ -613,6 +624,8 @@ Ref<ResourceLoader::LoadToken> ResourceLoader::_load_start(const String &p_path,
 			load_task.type_hint = p_type_hint;
 			load_task.cache_mode = p_cache_mode;
 			load_task.use_sub_threads = p_thread_mode == LOAD_THREAD_DISTRIBUTE;
+			load_task.start_time_usec = OS::get_singleton()->get_ticks_usec();
+			load_task.timeout_ms = p_timeout_ms;
 			if (p_cache_mode == ResourceFormatLoader::CACHE_MODE_REUSE) {
 				Ref<Resource> existing = ResourceCache::get_ref(local_path);
 				if (existing.is_valid()) {

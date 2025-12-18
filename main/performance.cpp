@@ -37,6 +37,7 @@
 #include "scene/main/scene_tree.h"
 #include "servers/audio/audio_server.h"
 #include "servers/rendering/rendering_server.h"
+#include "servers/rendering/renderer_rd/framebuffer_cache_rd.h"
 
 #ifndef NAVIGATION_2D_DISABLED
 #include "servers/navigation_2d/navigation_server_2d.h"
@@ -204,6 +205,9 @@ String Performance::get_monitor_name(Monitor p_monitor) const {
 		PNAME("pipeline/compilations_surface"),
 		PNAME("pipeline/compilations_draw"),
 		PNAME("pipeline/compilations_specialization"),
+		PNAME("cache/framebuffer_hit_rate"),
+		PNAME("cache/framebuffer_hits"),
+		PNAME("cache/framebuffer_misses"),
 #ifndef NAVIGATION_2D_DISABLED
 		PNAME("navigation_2d/active_maps"),
 		PNAME("navigation_2d/regions"),
@@ -282,6 +286,21 @@ double Performance::get_monitor(Monitor p_monitor) const {
 			return RS::get_singleton()->get_rendering_info(RS::RENDERING_INFO_PIPELINE_COMPILATIONS_DRAW);
 		case PIPELINE_COMPILATIONS_SPECIALIZATION:
 			return RS::get_singleton()->get_rendering_info(RS::RENDERING_INFO_PIPELINE_COMPILATIONS_SPECIALIZATION);
+		case CACHE_FRAMEBUFFER_HIT_RATE:
+			if (FramebufferCacheRD::get_singleton()) {
+				return FramebufferCacheRD::get_singleton()->get_cache_hit_rate();
+			}
+			return 0.0;
+		case CACHE_FRAMEBUFFER_HITS:
+			if (FramebufferCacheRD::get_singleton()) {
+				return FramebufferCacheRD::get_singleton()->get_cache_hits();
+			}
+			return 0.0;
+		case CACHE_FRAMEBUFFER_MISSES:
+			if (FramebufferCacheRD::get_singleton()) {
+				return FramebufferCacheRD::get_singleton()->get_cache_misses();
+			}
+			return 0.0;
 #ifndef PHYSICS_2D_DISABLED
 		case PHYSICS_2D_ACTIVE_OBJECTS:
 			return PhysicsServer2D::get_singleton()->get_process_info(PhysicsServer2D::INFO_ACTIVE_OBJECTS);

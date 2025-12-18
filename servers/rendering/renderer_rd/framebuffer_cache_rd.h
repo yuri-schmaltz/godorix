@@ -145,6 +145,8 @@ class FramebufferCacheRD : public Object {
 	static FramebufferCacheRD *singleton;
 
 	uint32_t cache_instances_used = 0;
+	uint32_t cache_hits = 0;
+	uint32_t cache_misses = 0;
 
 	void _invalidate(Cache *p_cache);
 	static void _framebuffer_invalidation_callback(void *p_userdata);
@@ -203,10 +205,12 @@ public:
 
 			while (c) {
 				if (c->hash == h && c->passes.is_empty() && c->textures.size() == sizeof...(Args) && c->views == 1 && _compare_args(0, c->textures, args...)) {
+					cache_hits++;
 					return c->cache;
 				}
 				c = c->next;
 			}
+			cache_misses++;
 		}
 
 		// Not in cache, create:
@@ -228,10 +232,12 @@ public:
 
 			while (c) {
 				if (c->hash == h && c->passes.is_empty() && c->textures.size() == sizeof...(Args) && c->views == p_views && _compare_args(0, c->textures, args...)) {
+					cache_hits++;
 					return c->cache;
 				}
 				c = c->next;
 			}
+			cache_misses++;
 		}
 
 		// Not in cache, create:
@@ -277,20 +283,26 @@ public:
 					}
 
 					if (all_ok) {
-						return c->cache;
-					}
+					cache_hits++;
+					return c->cache;
 				}
-				c = c->next;
 			}
+			c = c->next;
 		}
-
-		// Not in cache, create:
+		cache_misses++;
 		return _allocate_from_data(p_views, h, table_idx, p_textures, p_passes);
 	}
 
 	static RID get_cache_multipass_array(const TypedArray<RID> &p_textures, const TypedArray<RDFramebufferPass> &p_passes, uint32_t p_views = 1);
 
 	static FramebufferCacheRD *get_singleton() { return singleton; }
+
+	uint32_t get_cache_hits() const { return cache_hits; }
+	uint32_t get_cache_misses() const { return cache_misses; }
+	float get_cache_hit_rate() const {
+		uint32_t total = cache_hits + cache_misses;
+		return total > 0 ? (float)cache_hits / (float)total : 0.0f;
+	}
 
 	FramebufferCacheRD();
 	~FramebufferCacheRD();

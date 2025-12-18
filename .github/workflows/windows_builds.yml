@@ -72,6 +72,17 @@ jobs:
       - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.6
+        with:
+          version: "v0.8.2"
+
+      - name: Configure sccache
+        shell: bash
+        run: |
+          echo "SCCACHE_DIR=${{ github.workspace }}/sccache" >> $GITHUB_ENV
+          echo "SCCACHE_CACHE_SIZE=2G" >> $GITHUB_ENV
+
       - name: Download Direct3D 12 SDK components
         shell: sh
         id: d3d12-sdk
